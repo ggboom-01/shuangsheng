@@ -141,15 +141,32 @@ const Input = (function () {
     };
     window.addEventListener('keydown', onKey, { passive: false });
 
-    /* 虚拟方向键（屏幕十字键）：与键盘同一节流、同一方向提示 */
+    /* 虚拟方向键（屏幕十字键）：与键盘同一节流、同一方向提示。
+     * 多事件兜底：pointerdown（现代浏览器）/ touchstart（老 WebView，可能不支持 PointerEvent）/ mousedown+click（桌面）。
+     * 触摸后约 300ms 会补发一次 mousedown/click，用 firedByTouch 防双发；同刻多事件则由节流天然吸收。 */
     const dpad = document.getElementById('dpad');
     if (dpad) {
       dpad.querySelectorAll('.dp[data-dir]').forEach((btn) => {
-        btn.addEventListener('pointerdown', (e) => {
-          e.preventDefault();
-          showHint(canvas, btn.dataset.dir, null, null, true);
+        const dir = btn.dataset.dir;
+        let touchFired = false;
+        let touchTimer = 0;
+        const press = (e) => {
+          if (e && e.cancelable) e.preventDefault();
+          showHint(canvas, dir, null, null, true);
           hideHint(FLASH);
-          fire(btn.dataset.dir);
+          fire(dir);
+        };
+        btn.addEventListener('pointerdown', press);
+        btn.addEventListener('touchstart', (e) => {
+          touchFired = true;
+          if (touchTimer) { clearTimeout(touchTimer); }
+          touchTimer = setTimeout(() => { touchFired = false; }, 500);
+          press(e);
+        }, { passive: false });
+        btn.addEventListener('mousedown', (e) => { if (!touchFired) press(e); });
+        btn.addEventListener('click', (e) => {
+          e.preventDefault(); // 阻止按钮获得焦点等默认行为
+          if (!touchFired) press(e);
         });
       });
     }
