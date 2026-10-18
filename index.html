@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>双生 · 镜像解谜</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div id="privacy-overlay">
+    <div class="pv-card">
+      <h2>双生 · 镜像解谜</h2>
+      <p class="pv-text">本游戏为免费单机游戏，不收集任何个人信息，游戏进度仅保存在本设备浏览器中。开始前请阅读《隐私政策》。</p>
+      <a id="privacy-link" class="pv-link" href="https://ggboom-01.github.io/shuangsheng/privacy.html" target="_blank" rel="noopener">查看《隐私政策》</a>
+      <div class="btn-row">
+        <button id="btn-privacy-agree">同意并进入</button>
+        <button id="btn-privacy-decline" class="ghost">不同意</button>
+      </div>
+      <p id="privacy-decline-tip" class="pv-tip hidden">不同意《隐私政策》将无法进入游戏</p>
+    </div>
+  </div>
+
+  <div id="app">
+    <header id="hud">
+      <div id="level-name">第 1 关</div>
+      <div id="timer">用时 <span id="time-count">0:00</span></div>
+      <div id="moves">步数 <span id="move-count">0</span></div>
+    </header>
+
+    <div id="board-wrap">
+      <canvas id="board"></canvas>
+      <div id="win-overlay" class="hidden">
+        <div class="win-card">
+          <h2>过关！</h2>
+          <p id="win-info"></p>
+          <p id="win-records"></p>
+          <div class="btn-row">
+            <button id="btn-next">下一关</button>
+            <button id="btn-replay" class="ghost">重玩</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <footer id="controls">
+      <button id="btn-undo">↶ 悔一步</button>
+      <button id="btn-reset">↺ 重置</button>
+      <button id="btn-levels">▦ 选关</button>
+    </footer>
+
+    <div id="level-select" class="hidden">
+      <div class="ls-card">
+        <h3>选择关卡</h3>
+        <div id="ls-buttons"></div>
+        <button id="btn-ls-close">关闭</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/engine.js"></script>
+  <script src="js/levels_hell.js"></script>
+  <script src="js/renderer.js"></script>
+  <script src="js/input.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
