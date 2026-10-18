@@ -4,9 +4,9 @@
  *   onStep(dir) -> dir ∈ 'up'|'down'|'left'|'right'
  *
  * 支持：
- *   - 触摸滑动：阈值 24px、取主轴方向、抬手（touchend）触发、节流 120ms
+ *   - 屏幕十字方向键（#dpad）：pointerdown / touchstart / mousedown / click 多事件兜底
  *   - 键盘：方向键 + WASD，preventDefault 阻止页面滚动
- *   - 加分项：滑动方向箭头预览（按下即跟随手指显示箭头，越阈变亮，抬手闪一下）
+ *   - 触摸滑动：阈值 24px、取主轴方向、抬手（touchend）触发、节流 120ms
  *   - 附带：鼠标拖拽（桌面调试等价操作，同样抬手触发）
  */
 const Input = (function () {
@@ -14,20 +14,13 @@ const Input = (function () {
 
   const THRESHOLD = 24;    // 滑动判定阈值（px）
   const THROTTLE = 120;    // 节流间隔（ms）
-  const FLASH = 160;       // 抬手后箭头停留时长（ms）
 
   const KEYMAP = {
     ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right',
     w: 'up', s: 'down', a: 'left', d: 'right',
   };
 
-  const ARROW_COLOR = '#FF6E5C';
-  const ARROW_DIM = 'rgba(232,230,240,0.34)';
-
   let lastFire = 0;
-  let hintEl = null;
-  let hintCanvas = null;
-  let flashTimer = 0;
 
   function throttleOk() {
     const now = nowMs();
@@ -40,88 +33,10 @@ const Input = (function () {
     return (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
   }
 
-  /* ---------- 方向箭头预览 ---------- */
-
-  function angleOf(dir) {
-    if (dir === 'right') return Math.PI / 2;
-    if (dir === 'down') return Math.PI;
-    if (dir === 'left') return -Math.PI / 2;
-    return 0; // up
-  }
-
-  function ensureHint(canvas) {
-    if (hintEl) return hintEl;
-    const host = (canvas && canvas.parentNode) || document.body;
-    hintEl = document.createElement('div');
-    hintEl.id = 'swipe-hint';
-    hintCanvas = document.createElement('canvas');
-    hintCanvas.className = 'sh-arrow';
-    hintCanvas.width = 64;
-    hintCanvas.height = 64;
-    hintEl.appendChild(hintCanvas);
-    host.appendChild(hintEl);
-    return hintEl;
-  }
-
-  function paintArrow(dir, active) {
-    if (!hintCanvas) return;
-    const g = hintCanvas.getContext('2d');
-    g.clearRect(0, 0, 64, 64);
-    g.save();
-    g.translate(32, 32);
-    g.rotate(angleOf(dir));
-    g.fillStyle = active ? ARROW_COLOR : ARROW_DIM;
-    if (active) { g.shadowColor = ARROW_COLOR; g.shadowBlur = 10; }
-    g.beginPath();
-    g.moveTo(0, -19);
-    g.lineTo(13, 4);
-    g.lineTo(5.5, 4);
-    g.lineTo(5.5, 18);
-    g.lineTo(-5.5, 18);
-    g.lineTo(-5.5, 4);
-    g.lineTo(-13, 4);
-    g.closePath();
-    g.fill();
-    g.restore();
-  }
-
-  function moveHint(canvas, clientX, clientY) {
-    const host = (canvas && canvas.parentNode) || document.body;
-    const box = host.getBoundingClientRect();
-    hintEl.style.left = (clientX - box.left) + 'px';
-    hintEl.style.top = (clientY - box.top) + 'px';
-  }
-
-  function showHint(canvas, dir, clientX, clientY, active) {
-    ensureHint(canvas);
-    if (flashTimer) { clearTimeout(flashTimer); flashTimer = 0; }
-    paintArrow(dir, active);
-    hintEl.classList.toggle('active', !!active);
-    hintEl.classList.add('show');
-    if (typeof clientX === 'number') moveHint(canvas, clientX, clientY);
-    else centerHint(canvas);
-  }
-
-  function centerHint(canvas) {
-    const host = (canvas && canvas.parentNode) || document.body;
-    const box = host.getBoundingClientRect();
-    hintEl.style.left = (box.width / 2) + 'px';
-    hintEl.style.top = (box.height / 2) + 'px';
-  }
-
-  function hideHint(delay) {
-    if (!hintEl) return;
-    if (flashTimer) { clearTimeout(flashTimer); flashTimer = 0; }
-    const off = () => { if (hintEl) { hintEl.classList.remove('show'); hintEl.classList.remove('active'); } };
-    if (delay > 0) flashTimer = setTimeout(off, delay);
-    else off();
-  }
-
   /* ---------- 初始化 ---------- */
 
   function init(canvas, onStep) {
     if (!canvas) return;
-    ensureHint(canvas);
 
     const fire = (dir) => {
       if (!throttleOk()) return;
@@ -135,15 +50,13 @@ const Input = (function () {
       const dir = KEYMAP[k];
       if (!dir) return;
       e.preventDefault(); // 阻止方向键 / 空格滚动页面
-      showHint(canvas, dir, null, null, true);
-      hideHint(FLASH);
       fire(dir);
     };
     window.addEventListener('keydown', onKey, { passive: false });
 
-    /* 虚拟方向键（屏幕十字键）：与键盘同一节流、同一方向提示。
+    /* 虚拟方向键（屏幕十字键）：与键盘同一节流。
      * 多事件兜底：pointerdown（现代浏览器）/ touchstart（老 WebView，可能不支持 PointerEvent）/ mousedown+click（桌面）。
-     * 触摸后约 300ms 会补发一次 mousedown/click，用 firedByTouch 防双发；同刻多事件则由节流天然吸收。 */
+     * 触摸后约 300ms 会补发一次 mousedown/click，用 touchFired 防双发；同刻多事件则由节流天然吸收。 */
     const dpad = document.getElementById('dpad');
     if (dpad) {
       dpad.querySelectorAll('.dp[data-dir]').forEach((btn) => {
@@ -152,8 +65,6 @@ const Input = (function () {
         let touchTimer = 0;
         const press = (e) => {
           if (e && e.cancelable) e.preventDefault();
-          showHint(canvas, dir, null, null, true);
-          hideHint(FLASH);
           fire(dir);
         };
         btn.addEventListener('pointerdown', press);
@@ -175,7 +86,7 @@ const Input = (function () {
     let id = null;
     let sx = 0, sy = 0, cx = 0, cy = 0;
     let dir = null;
-    let armed = false; // 是否已越过阈值
+    let armed = false;
 
     function dirOf(dx, dy) {
       if (Math.abs(dx) < THRESHOLD && Math.abs(dy) < THRESHOLD) return null;
@@ -189,7 +100,6 @@ const Input = (function () {
       sx = cx = x;
       sy = cy = y;
       dir = null;
-      showHint(canvas, 'up', x, y, false);
     }
 
     function move(x, y) {
@@ -197,15 +107,13 @@ const Input = (function () {
       cx = x; cy = y;
       const d = dirOf(x - sx, y - sy);
       if (d) dir = d;
-      showHint(canvas, dir || 'up', x, y, !!d);
     }
 
     function end() {
       if (!armed) return;
       armed = false;
       const d = dir || dirOf(cx - sx, cy - sy);
-      if (d) { fire(d); hideHint(FLASH); }
-      else hideHint(0);
+      if (d) fire(d);
       dir = null;
     }
 
@@ -239,7 +147,7 @@ const Input = (function () {
       end();
     };
     canvas.addEventListener('touchend', touchEnd, { passive: true });
-    canvas.addEventListener('touchcancel', () => { id = null; armed = false; hideHint(0); }, { passive: true });
+    canvas.addEventListener('touchcancel', () => { id = null; armed = false; }, { passive: true });
 
     /* 鼠标拖拽（桌面） */
     canvas.addEventListener('mousedown', (e) => {
