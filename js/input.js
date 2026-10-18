@@ -141,6 +141,19 @@ const Input = (function () {
     };
     window.addEventListener('keydown', onKey, { passive: false });
 
+    /* 虚拟方向键（屏幕十字键）：与键盘同一节流、同一方向提示 */
+    const dpad = document.getElementById('dpad');
+    if (dpad) {
+      dpad.querySelectorAll('.dp[data-dir]').forEach((btn) => {
+        btn.addEventListener('pointerdown', (e) => {
+          e.preventDefault();
+          showHint(canvas, btn.dataset.dir, null, null, true);
+          hideHint(FLASH);
+          fire(btn.dataset.dir);
+        });
+      });
+    }
+
     /* 滑动状态 */
     let id = null;
     let sx = 0, sy = 0, cx = 0, cy = 0;

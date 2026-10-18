@@ -162,6 +162,40 @@ canvas {
   transform: translate(-50%, -50%) scale(0.62);
 }
 
+/* ---------- 虚拟方向键 ---------- */
+
+#dpad {
+  display: grid;
+  grid-template-columns: repeat(3, 54px);
+  grid-template-rows: repeat(3, 54px);
+  grid-template-areas:
+    ". up ."
+    "left . right"
+    ". down .";
+  gap: 6px;
+  justify-content: center;
+}
+
+#dpad .dp {
+  width: 54px;
+  height: 54px;
+  padding: 0;
+  font-size: 22px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 16px;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+}
+
+.dp-up { grid-area: up; }
+.dp-left { grid-area: left; }
+.dp-right { grid-area: right; }
+.dp-down { grid-area: down; }
+
 /* ---------- 控制栏 ---------- */
 
 #controls {
@@ -409,6 +443,8 @@ button.ghost {
   #app { gap: 10px; }
   #level-name, #moves, #timer { padding: 5px 13px; }
   button { padding: 9px 15px; font-size: 13px; }
+  #dpad { grid-template-columns: repeat(3, 46px); grid-template-rows: repeat(3, 46px); }
+  #dpad .dp { width: 46px; height: 46px; }
 }
 
 @media (max-width: 400px) {
