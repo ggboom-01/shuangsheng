@@ -4,8 +4,10 @@
 
   let eng = null;
   let curLevel = 0;
-  let anim = null; // { t, fromPlayer, toPlayer, fromShadow, toShadow }
+  let anim = null; // { t, start, fromPlayer, toPlayer, fromShadow, toShadow }
   let winShown = false;
+
+  const ANIM_MS = 110; // 一步动画时长（按时间而非帧数，低帧率时移动速度不变慢）
 
   const canvas = document.getElementById('board');
   const elMoves = document.getElementById('move-count');
@@ -85,6 +87,7 @@
     if (res.ok) {
       anim = {
         t: 0,
+        start: performance.now(),
         fromPlayer: eng.history[eng.history.length - 1][0],
         toPlayer: { r: eng.player.r, c: eng.player.c },
         fromShadow: eng.history[eng.history.length - 1][1],
@@ -101,7 +104,7 @@
 
   function frame() {
     if (anim) {
-      anim.t += 0.16; // ~6 帧完成一步
+      anim.t = (performance.now() - anim.start) / ANIM_MS; // 时间驱动：约 110ms 完成一步，与帧率无关
       if (anim.t >= 1) anim = null;
     }
     if (eng && finalMs === 0) {

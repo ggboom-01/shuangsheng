@@ -7,6 +7,10 @@
  *
  * 视觉规范（GAME_SPEC.md 第 6 节）：深空 #12121c / 珊瑚 #FF6E5C / 靛蓝 #4F46E5
  * 纯 Canvas 2D 绘制：无外部图片、无外部字体、无第三方库。
+ *
+ * 性能：静态层（背景/棋盘格/网格线/镜像轴/墙）只在关卡或画布尺寸变化时
+ *       重绘到离屏画布，每帧仅整幅贴图 + 动态层（目标呼吸/残影/棋子/暗角），
+ *       39×39 大棋盘依然满帧。
  */
 const Renderer = (function () {
   'use strict';
@@ -34,6 +38,11 @@ const Renderer = (function () {
   let echoes = [];   // 残影 { r, c, color, hi, born }
   let lastAnim = null;
   let resizeBound = false;
+
+  /* 静态层离屏画布：面板/格子/网格线/镜像轴/墙，关卡或尺寸变化时重建 */
+  let staticCv = null;
+  let staticCtx = null;
+  let staticLevel = null;
 
   /* ---------- 基础工具 ---------- */
 
@@ -211,6 +220,30 @@ const Renderer = (function () {
     (level.wallsB || []).forEach(w => drawWall(w, C.indigo, C.indigoHi));
   }
 
+  /* ---------- 静态层缓存：只画一次，之后每帧整幅贴图 ---------- */
+
+  function buildStatic(level, n, goalS) {
+    staticCv = document.createElement('canvas');
+    staticCv.width = canvas.width;
+    staticCv.height = canvas.height;
+    staticCtx = staticCv.getContext('2d');
+    staticCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const mainCtx = ctx;
+    ctx = staticCtx;
+    try {
+      staticCtx.fillStyle = C.bg;
+      staticCtx.fillRect(0, 0, cssSize, cssSize);
+      drawPanel();
+      drawCells(n);
+      drawGridLines(n);
+      drawMirrorAxis(level.goal, goalS);
+      drawWalls(level);
+    } finally {
+      ctx = mainCtx;
+    }
+    staticLevel = level;
+  }
+
   /* ---------- 图层 6：目标（呼吸发光环） ---------- */
 
   function drawGoal(pos, color, hi, now, won) {
@@ -337,15 +370,18 @@ const Renderer = (function () {
     const goalS = state.goalShadowPos ||
       { r: n - 1 - level.goal.r, c: n - 1 - level.goal.c };
 
-    ctx.clearRect(0, 0, cssSize, cssSize);
-    ctx.fillStyle = C.bg;
-    ctx.fillRect(0, 0, cssSize, cssSize);
+    // 静态层：关卡或画布尺寸变化时重建，否则整幅贴图
+    if (!staticCv || staticLevel !== level ||
+        staticCv.width !== canvas.width || staticCv.height !== canvas.height) {
+      buildStatic(level, n, goalS);
+    }
 
-    drawPanel();
-    drawCells(n);
-    drawGridLines(n);
-    drawMirrorAxis(level.goal, goalS);
-    drawWalls(level);
+    ctx.clearRect(0, 0, cssSize, cssSize);
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.drawImage(staticCv, 0, 0);
+    ctx.restore();
+
     drawGoal(level.goal, C.coral, C.coralHi, now, won);
     drawGoal(goalS, C.indigo, C.indigoHi, now, won);
 
